@@ -1,8 +1,13 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Price extends CI_Model {
-    public function addNewPair($pair, $length, $intval){
+class Market extends CI_Model {
+    function __construct() {
+        parent::__construct();
+        $this->load->library('request');
+    }
+
+    public function prices($pair, $length, $intval){
         $prices = [];
         $i = 0;
         while(count($prices) < $length){
@@ -13,7 +18,7 @@ class Price extends CI_Model {
                 $end = $prices[count($prices)-2][0];
                 $url = "https://api.bytick.com/v5/market/kline?category=spot&symbol=".$pair."&interval=".$intval."&end=".$end."&limit=".$limit;
             }
-            $get = $this->curl_get_file_contents($url);
+            $get = $this->request->get($url);
             $price = json_decode($get)->result->list;
             sleep(1);
             if(count($prices) > 0){
