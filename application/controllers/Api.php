@@ -8,7 +8,7 @@ class api extends CI_Controller {
     }
 
     public function price() {
-        $data = $this->market->prices("BTCUSDT","2000","D");
+        $data = $this->market->prices("BTCUSDT","500","D");
         
         header('Content-Type: application/json; charset=utf-8');
         die(json_encode($data));
