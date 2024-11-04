@@ -46,7 +46,7 @@
 
         #content {
             width: 100vw;
-            height: 100vh;
+            height: 500px;
             overflow: hidden;
             cursor: grab;
             position: relative;
@@ -71,7 +71,28 @@
     </style>
 </head>
 <body>
-    <h1>Hello, world!</h1>
+    <!-- TradingView Widget BEGIN -->
+    <div style="width:90vw; margin:auto; height: 600px">
+        <div class="tradingview-widget-container" style="height:100%;width:100%">
+            <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+            <div class="tradingview-widget-copyright"><a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank"><span class="blue-text">Track all markets on TradingView</span></a></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" async>
+            {
+            "autosize": false,
+            "symbol": "BTCUSDT",
+            "interval": "D",
+            "timezone": "Etc/UTC",
+            "theme": "dark",
+            "style": "1",
+            "locale": "en",
+            "allow_symbol_change": true,
+            "calendar": false,
+            "support_host": "https://www.tradingview.com"
+            }
+            </script>
+        </div>
+    </div>
+    <!-- TradingView Widget END -->
     <div id="wrapper" class="position-relative">
         <div id="content">
             <div id="chart">
@@ -89,7 +110,7 @@
         $(document).ready(function() {
             // Fetch data and populate the chart
             $.get("<?= base_url("index.php/") ?>api/price", function(data, status) {
-                const factor = 50;
+                const factor = 100;
                 data.forEach(function(e) {
                     const bottom = e[3] / factor;
                     const height = (e[2] - e[3]) / factor;
@@ -121,8 +142,8 @@
                     $("#chart").prepend(newElement);
                 });
 
-                $('#content')[0].scrollLeft = $("#chart").width()-$('#content').width()*1.5;
-                $('#content')[0].scrollTop = ($("#chart").height()-data[0][3]/factor)*0.9;
+                $('#content')[0].scrollLeft = $("#chart").width()-$('#content').width()*1.8;
+                $('#content')[0].scrollTop = ($("#chart").height()-data[0][3]/factor)*0.95;
             });
 
             // Scroll by dragging
