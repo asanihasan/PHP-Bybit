@@ -7,6 +7,7 @@ class Home extends CI_Controller {
     }
 
     public function index() {
+        // $api_key = api_key();
         $this->load->view("index");
     }
 }
