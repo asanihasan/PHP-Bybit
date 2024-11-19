@@ -7,7 +7,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Vector_api {
     public  function get($collection = ""){
-        $apiUrl = 'http://asanihasan.cloud:6333/collections/'.$collection;
+        $apiUrl = vector_url('collections/'.$collection);
         $apiKey = api_key();
         
         $ch = curl_init();
@@ -33,7 +33,7 @@ class Vector_api {
     }
 
     function updateCollection($data) {
-        $apiUrl = 'http://asanihasan.cloud:6333/collections/'.$collection;
+        $apiUrl = vector_url('collections/'.$collection);
         $apiKey = api_key();
         $ch = curl_init();
     
@@ -61,7 +61,7 @@ class Vector_api {
     }
 
     function deleteCollection($collection) {
-        $apiUrl = 'http://asanihasan.cloud:6333/collections/'.$collection;
+        $apiUrl = vector_url('collections/'.$collection);
         $apiKey = api_key();
         $ch = curl_init();
     

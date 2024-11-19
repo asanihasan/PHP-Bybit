@@ -9,3 +9,7 @@ if (!defined('BASEPATH')) exit('No direct script access allowed');
 function api_key(){
     return "<api_key_here>";
 }
+
+function vector_url($path = ""){
+    return "<qdrant database url>" . $path;
+}
