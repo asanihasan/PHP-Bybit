@@ -6,10 +6,6 @@
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Vector_api {
-    function __construct() {
-        parent::__construct();
-    }
-
     public  function get($collection = ""){
         $apiUrl = 'http://asanihasan.cloud:6333/collections/'.$collection;
         $apiKey = api_key();
