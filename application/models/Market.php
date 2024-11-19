@@ -38,4 +38,27 @@ class Market extends CI_Model {
 
         return $prices;
     }
+
+    public function tickers(){
+        $url = "https://api.bybit.com/v5/market/tickers?category=spot";
+        $get = $this->curl_get_file_contents($url);
+        $get = json_decode($get)->result;
+        return $get;
+    }
+
+    public function order_book($pair, $balance){
+        $url = "https://api.bybit.com/v5/market/orderbook?category=spot&symbol={$pair}&limit=3";
+        $get = $this->curl_get_file_contents($url);
+        $get = json_decode($get)->result;
+        
+        $seller = $get->a;
+        foreach($seller as $sell){
+            $price = $sell[0];
+            $size = $sell[1];
+            $qyt = $balance/$price;
+            if($size >= $qyt) break;
+        }
+        
+        return $qyt;
+    }
 }
