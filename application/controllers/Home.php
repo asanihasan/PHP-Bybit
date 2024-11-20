@@ -4,10 +4,16 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 class Home extends CI_Controller {
     function __construct() {
         parent::__construct();
+        $this->load->model("lisa");
     }
 
     public function index() {
-        // $api_key = api_key();
         $this->load->view("index");
+    }
+
+    public function test(){
+        $data = $this->lisa->candles();
+        header('Content-Type: application/json; charset=utf-8');
+        die(json_encode($data));
     }
 }

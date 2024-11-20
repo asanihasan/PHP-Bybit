@@ -1,10 +1,16 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Market extends CI_Model {
-    function __construct() {
-        parent::__construct();
-        $this->load->library('request');
+class Bybit {
+    public function get($URL){
+        $c = curl_init();
+        curl_setopt($c, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($c, CURLOPT_URL, $URL);
+        $contents = curl_exec($c);
+        curl_close($c);
+    
+        if ($contents) return $contents;
+        else return FALSE;
     }
 
     public function prices($pair, $length, $intval){
@@ -18,7 +24,7 @@ class Market extends CI_Model {
                 $end = $prices[count($prices)-2][0];
                 $url = "https://api.bytick.com/v5/market/kline?category=spot&symbol=".$pair."&interval=".$intval."&end=".$end."&limit=".$limit;
             }
-            $get = $this->request->get($url);
+            $get = $this->get($url);
             $price = json_decode($get)->result->list;
             sleep(1);
             if(count($prices) > 0){
@@ -41,14 +47,14 @@ class Market extends CI_Model {
 
     public function tickers(){
         $url = "https://api.bybit.com/v5/market/tickers?category=spot";
-        $get = $this->curl_get_file_contents($url);
+        $get = $this->get($url);
         $get = json_decode($get)->result;
         return $get;
     }
 
     public function order_book($pair, $balance){
         $url = "https://api.bybit.com/v5/market/orderbook?category=spot&symbol=$pair&limit=3";
-        $get = $this->curl_get_file_contents($url);
+        $get = $this->get($url);
         $get = json_decode($get)->result;
         
         $seller = $get->a;
@@ -61,4 +67,5 @@ class Market extends CI_Model {
         
         return $qyt;
     }
+
 }
