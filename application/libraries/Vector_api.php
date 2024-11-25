@@ -1,14 +1,10 @@
-<!-- 
-    API belum lengkap
-    function belum pas
--->
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
 class Vector_api {
-    public  function get($collection = ""){
-        $apiUrl = vector_url('collections/'.$collection);
-        $apiKey = api_key();
+    public  function get($uri = "collections"){
+        $apiUrl = vector_url($uri);
+        $apiKey = vector_api_key();
         
         $ch = curl_init();
         
@@ -23,18 +19,19 @@ class Vector_api {
         
         $response = curl_exec($ch);
         
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
-        } else {
-            echo 'Response:' . $response;
-        }
-        
+        $err = curl_errno($ch);
         curl_close($ch);
+
+        if ($err) {
+            return false;
+        } else {
+            return $response;
+        }
     }
 
-    public function updateCollection($data) {
-        $apiUrl = vector_url('collections/'.$collection);
-        $apiKey = api_key();
+    public function put($data, $uri = "collections") {
+        $apiUrl = vector_url($uri);
+        $apiKey = vector_api_key();
         $ch = curl_init();
     
         curl_setopt($ch, CURLOPT_URL, $apiUrl);
@@ -50,19 +47,20 @@ class Vector_api {
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     
         $response = curl_exec($ch);
-    
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
-        } else {
-            echo 'Response:' . $response;
-        }
-    
+        
+        $err = curl_errno($ch);
         curl_close($ch);
+
+        if ($err) {
+            return false;
+        } else {
+            return $response;
+        }
     }
 
-    public function deleteCollection($collection) {
-        $apiUrl = vector_url('collections/'.$collection);
-        $apiKey = api_key();
+    public function del($uri = "collections") {
+        $apiUrl = vector_url($uri);
+        $apiKey = vector_api_key();
         $ch = curl_init();
     
         // Set the URL and HTTP method to DELETE
@@ -79,17 +77,63 @@ class Vector_api {
     
         // Execute the request
         $response = curl_exec($ch);
-    
-        // Check for errors
-        if (curl_errno($ch)) {
-            echo 'Error:' . curl_error($ch);
-        } else {
-            echo 'Response:' . $response;
-        }
-    
-        // Close the cURL session
+        
+        $err = curl_errno($ch);
         curl_close($ch);
+
+        if ($err) {
+            return false;
+        } else {
+            return $response;
+        }
     }
 
+    public function post($data, $uri = "collections") {
+        $apiUrl = vector_url($uri);
+        $apiKey = vector_api_key();
+        $ch = curl_init();
+    
+        // Set up cURL options
+        curl_setopt($ch, CURLOPT_URL, $apiUrl);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'api-key: ' . $apiKey,
+            'Content-Type: application/json',
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // To capture response as a string
+    
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE); // Capture HTTP status code
+        $err = curl_errno($ch);
+        $errorMessage = curl_error($ch); // Capture cURL error message
+        curl_close($ch);
+    
+        // Check for cURL errors
+        if ($err) {
+            return [
+                'success' => false,
+                'error' => $errorMessage,
+            ];
+        }
+    
+        // Check for HTTP errors
+        if ($httpCode < 200 || $httpCode >= 300) {
+            return [
+                'success' => false,
+                'http_code' => $httpCode,
+                'response' => $response,
+            ];
+        }
+    
+        // Assume response is JSON and decode it
+        $decodedResponse = json_decode($response, true);
+    
+        return [
+            'success' => true,
+            'http_code' => $httpCode,
+            'response' => $decodedResponse,
+        ];
+    }
     
 }

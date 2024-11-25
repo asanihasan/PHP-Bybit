@@ -12,11 +12,11 @@ class Lisa extends CI_Model {
     public function candles_vector() {
         // create complete vector
 
-        $prices = $this->bybit->prices($this->pair,"2000","240");
+        $prices = $this->bybit->prices($this->pair,"500","240");
         $length = $this->candle_length;
         $limit = count($prices) - $length;
         $candle = [];
-        for ($i=0; $i < $limit; $i++) { 
+        for ($i=1; $i < $limit; $i++) { 
             $vector = [];
             $time = $prices[$i][0];
             for ($x=0; $x < $length; $x++) { 
@@ -35,7 +35,8 @@ class Lisa extends CI_Model {
                 $vector[] = ($price[4] - $price[1])/$price[1];
             }
             $candle[] = [
-                "id" => $time . "-" . $this->pair,
+                "id" => generateUUID($time,$this->pair),
+                "payload" => ["pair" => "BTCUSDT", "time" => $time],
                 "vector" => $vector
             ];
         }
