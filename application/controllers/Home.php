@@ -12,7 +12,7 @@ class Home extends CI_Controller {
     }
 
     public function test(){
-        $data = $this->lisa->candles();
+        $data = $this->lisa->candles_vector();
         header('Content-Type: application/json; charset=utf-8');
         die(json_encode($data));
     }

@@ -32,7 +32,7 @@ class Vector_api {
         curl_close($ch);
     }
 
-    function updateCollection($data) {
+    public function updateCollection($data) {
         $apiUrl = vector_url('collections/'.$collection);
         $apiKey = api_key();
         $ch = curl_init();
@@ -60,7 +60,7 @@ class Vector_api {
         curl_close($ch);
     }
 
-    function deleteCollection($collection) {
+    public function deleteCollection($collection) {
         $apiUrl = vector_url('collections/'.$collection);
         $apiKey = api_key();
         $ch = curl_init();
@@ -90,4 +90,6 @@ class Vector_api {
         // Close the cURL session
         curl_close($ch);
     }
+
+    
 }
