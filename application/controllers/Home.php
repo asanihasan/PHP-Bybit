@@ -19,12 +19,9 @@ class Home extends CI_Controller {
     }
     
     public function vector(){
-        $data = $this->lisa->candle_vector();
-
-        $result = $this->qdrant->search($data,"candle_240");
-
+        $data = $this->lisa->vector();
         header('Content-Type: application/json; charset=utf-8');
-        die(json_encode($result));
+        die(json_encode($data));
     }
     
     public function qdrant($col = ""){
@@ -40,7 +37,7 @@ class Home extends CI_Controller {
     }
 
     public function point($id){
-        $data = $this->qdrant->get_point($id, "candle_240");
+        $data = $this->qdrant->get_point([$id], "candle_240");
         header('Content-Type: application/json; charset=utf-8');
         die(json_encode($data));
     }

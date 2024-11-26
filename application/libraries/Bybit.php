@@ -32,9 +32,8 @@ class Bybit {
                 array_shift($price);
             }
 
-            if((count($price) == 0) || ($i > 30)){
-                break;
-            }
+            if((count($price) == 0) || ($i > 30)) break;
+            
             $i ++;
 
             foreach($price as $pr){
@@ -43,6 +42,14 @@ class Bybit {
         }
 
         return $prices;
+    }
+
+    public function next_prices($pair, $length, $intval, $start = 0){
+        $url = "https://api.bytick.com/v5/market/kline?category=spot&symbol=".$pair."&interval=".$intval."&limit=". $length . "&start=" . $start;
+        $get = $this->get($url);
+        $price = json_decode($get)->result->list;
+
+        return $price;
     }
 
     public function tickers(){

@@ -40,7 +40,7 @@ class Qdrant extends CI_Model {
     public function get_point($id, $name){
         $uri = "collections/$name/points";
         $payload = [
-            "ids" => [$id],
+            "ids" => $id,
             "with_payload" => true
         ];
 
@@ -52,7 +52,7 @@ class Qdrant extends CI_Model {
         $uri = "collections/$name/points/search";
         $payload = [
             "vector" => $vector,
-            "limit" => 5,
+            "limit" => 10,
         ];
 
         $data = $this->vector_api->post($payload ,$uri);
