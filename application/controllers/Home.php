@@ -13,9 +13,13 @@ class Home extends CI_Controller {
     }
 
     public function test(){
-        $data = $this->lisa->candles_vector();
-        $payload = ["points" => $data]; 
-        $this->upsert($payload);
+        // $data = $this->lisa->candles_vector();
+        // $payload = ["points" => $data]; 
+        // $this->upsert($payload);
+        
+        $data = $this->lisa->test();
+        header('Content-Type: application/json; charset=utf-8');
+        die(json_encode($data));
     }
     
     public function vector(){

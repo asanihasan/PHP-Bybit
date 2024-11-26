@@ -5,6 +5,7 @@ class Lisa extends CI_Model {
     function __construct() {
         parent::__construct();
         $this->load->model("qdrant");
+        $this->load->model("indicator");
         $this->load->library('bybit');
 
         $this->pair = "BTCUSDT";
@@ -118,16 +119,21 @@ class Lisa extends CI_Model {
 
                     $return[$i]["growth"] = $growth;
                     $return[$i]["prices"] = $candle;
-
                 }
             }
         }
-        return $return;
+        return $prices;
     }
 
     public function next_price($time, $pair = "", $length = 20){
         $pair = $pair == "" ? $this->pair : $pair;
         $prices = $this->bybit->next_prices($pair,$length, $this->interval,$time);
         return $prices;
+    }
+
+    public function test(){
+        $prices = $this->bybit->prices($this->pair,"1000", $this->interval);
+        $data = $this->indicator->atr($prices, 14);
+        return $data;
     }
 }
