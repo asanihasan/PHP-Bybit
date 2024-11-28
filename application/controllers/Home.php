@@ -47,7 +47,7 @@ class Home extends CI_Controller {
     }
 
     public function add(){
-        $data = $this->qdrant->create_collection("candle_240",30);
+        $data = $this->qdrant->create_collection("indicator_vector",40);
         header('Content-Type: application/json; charset=utf-8');
         die($data);
     }

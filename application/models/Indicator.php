@@ -7,14 +7,15 @@ class Indicator extends CI_Model {
         $this->load->library('request');
     }
 
-    public function rsi($prices, $rsiLength) {
+    public function rsi($prices, $rsiLength, $movingAvgLength = 1) {
         $rsi = [];
         $gains = [];
         $losses = [];
-
+        $movingAverage = [];
+    
         // Make sure prices are in chronological order (oldest to newest)
         $prices = array_reverse($prices);
-
+    
         // Calculate initial gains and losses for the first period
         for ($i = 1; $i <= $rsiLength; $i++) {
             $change = $prices[$i][4] - $prices[$i - 1][4]; // Close price difference
@@ -26,11 +27,11 @@ class Indicator extends CI_Model {
                 $losses[] = abs($change);
             }
         }
-
+    
         // Calculate average gain and loss for the first RSI period
         $averageGain = array_sum($gains) / $rsiLength;
         $averageLoss = array_sum($losses) / $rsiLength;
-
+    
         // Calculate RSI for the first period
         if ($averageLoss == 0) {
             $rsi[] = 100; // Max RSI if there's no loss
@@ -38,18 +39,18 @@ class Indicator extends CI_Model {
             $rs = $averageGain / $averageLoss;
             $rsi[] = 100 - (100 / (1 + $rs));
         }
-
+    
         // Calculate RSI for the rest of the periods
         for ($i = $rsiLength + 1; $i < count($prices); $i++) {
             $change = $prices[$i][4] - $prices[$i - 1][4]; // Close price difference
-
+    
             $gain = $change > 0 ? $change : 0;
             $loss = $change < 0 ? abs($change) : 0;
-
+    
             // Smoothed averages
             $averageGain = (($averageGain * ($rsiLength - 1)) + $gain) / $rsiLength;
             $averageLoss = (($averageLoss * ($rsiLength - 1)) + $loss) / $rsiLength;
-
+    
             // RSI calculation
             if ($averageLoss == 0) {
                 $rsi[] = 100;
@@ -58,8 +59,28 @@ class Indicator extends CI_Model {
                 $rsi[] = 100 - (100 / (1 + $rs));
             }
         }
-
-        return array_reverse($rsi);
+    
+        // Calculate moving average of RSI
+        $queue = [];
+        $sum = 0;
+    
+        foreach ($rsi as $value) {
+            $queue[] = $value;
+            $sum += $value;
+    
+            if (count($queue) > $movingAvgLength) {
+                $sum -= array_shift($queue); // Remove the oldest value from the sum
+            }
+    
+            if (count($queue) == $movingAvgLength) {
+                $movingAverage[] = $sum / $movingAvgLength;
+            } else {
+                // For the initial period where the queue isn't filled yet
+                $movingAverage[] = $sum / count($queue);
+            }
+        }
+    
+        return array_reverse($movingAverage);
     }
 
     public function ma($prices, $smaLength) {
@@ -141,6 +162,7 @@ class Indicator extends CI_Model {
     public function atr($prices, $atrLength) {
         $atr = [];
         $tr = [];
+        $scaledATR = [];
     
         // Reverse prices to process in chronological order
         $prices = array_reverse($prices);
@@ -166,14 +188,20 @@ class Indicator extends CI_Model {
         $previousATR = $initialSum / $atrLength;
         $atr[] = $previousATR;
     
+        // Add scaled ATR for the initial ATR period
+        $scaledATR[] = 10 * ($previousATR / $prices[$atrLength - 1][4]); // Price at the end of the initial period
+    
         // Step 3: Calculate the subsequent ATR values
         for ($i = $atrLength; $i < count($tr); $i++) {
             $currentATR = (($previousATR * ($atrLength - 1)) + $tr[$i]) / $atrLength;
             $atr[] = $currentATR;
             $previousATR = $currentATR;
+    
+            // Calculate the scaled ATR value for the current period
+            $scaledATR[] = 10 * ($currentATR / $prices[$i][4]); // Current price
         }
     
-        // Reverse the ATR to match the original prices order
-        return array_reverse($atr);
+        // Reverse the scaled ATR to match the original prices order
+        return array_reverse($scaledATR);
     }
 }

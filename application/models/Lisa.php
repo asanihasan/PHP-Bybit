@@ -21,7 +21,7 @@ class Lisa extends CI_Model {
     public function candles_vector() {
         // create complete vector
 
-        $prices = $this->bybit->prices($this->pair,"10000", $this->interval);
+        $prices = $this->bybit->prices($this->pair,"1000", $this->interval);
         $length = $this->candle_length;
         $limit = count($prices) - $length;
         $candle = [];
@@ -132,8 +132,55 @@ class Lisa extends CI_Model {
     }
 
     public function test(){
-        $prices = $this->bybit->prices($this->pair,"1000", $this->interval);
-        $data = $this->indicator->atr($prices, 14);
+        $data = $this->indicator_vector();
         return $data;
+    }
+    
+    public function create_vector() {
+        $complete_vector = indicator_vector();
+
+        $payload = ["points" => $complete_vector];
+        $return = $this->qdrant->add_point($payload, "indicator_vector");
+        return $return;
+    } 
+
+    public function indicator_vector($length = 100) {
+        $count_back = 10;
+        $complete_vector = []; 
+        //
+        $prices = $this->bybit->prices($this->pair,"$length", $this->interval);
+        array_shift($prices);
+        $atr = $this->indicator->atr($prices, 14);
+        $rsi = $this->indicator->rsi($prices, 14, 5);
+        $wma1 = $this->indicator->wma($prices, 35);
+        $wma2 = $this->indicator->wma($prices, 21);
+        $ema1 = $this->indicator->ema($prices, 35);
+        $ema2 = $this->indicator->ema($prices, 21);
+
+        $i = 0;
+        foreach($prices as $price) {
+            $time = $price[0];
+            $vector = [];
+            for ($x = 0; $x < $count_back; $x++) { 
+                $num = $i + $x;
+                if (!isset($atr[$num]) || !isset($rsi[$num]) || !isset($wma1[$num]) || !isset($wma2[$num]) || !isset($ema1[$num]) || !isset($ema2[$num])) break 2;
+                $wma = ($wma2[$num] - $wma1[$num]) /$wma1[$num];
+                $ema = ($ema2[$num] - $ema1[$num]) /$ema1[$num];
+                $vector[] = $wma;
+                $vector[] = $ema;
+                $vector[] = $rsi[$num]/100;
+                $vector[] = $atr[$num];
+            }
+            $point["id"] = generateUUID($time,$this->pair);
+            $point["payload"] = [
+                "pair" => $this->pair,
+                "time" => $time
+            ];
+            $point["vector"] = $vector;
+            $complete_vector[] = $point;
+            $i++;
+        }
+
+        return $complete_vector;
     }
 }
