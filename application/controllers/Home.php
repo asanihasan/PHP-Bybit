@@ -22,6 +22,12 @@ class Home extends CI_Controller {
         die(json_encode($data));
     }
     
+    public function search() {
+        $data = $this->lisa->predict();
+        header('Content-Type: application/json; charset=utf-8');
+        die(json_encode($data));
+    }
+    
     public function vector(){
         $data = $this->lisa->vector();
         header('Content-Type: application/json; charset=utf-8');

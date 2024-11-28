@@ -132,12 +132,12 @@ class Lisa extends CI_Model {
     }
 
     public function test(){
-        $data = $this->indicator_vector();
+        $data = $this->create_vector();
         return $data;
     }
     
     public function create_vector() {
-        $complete_vector = indicator_vector();
+        $complete_vector = $this->indicator_vector(1000);
 
         $payload = ["points" => $complete_vector];
         $return = $this->qdrant->add_point($payload, "indicator_vector");
@@ -149,7 +149,8 @@ class Lisa extends CI_Model {
         $complete_vector = []; 
         //
         $prices = $this->bybit->prices($this->pair,"$length", $this->interval);
-        array_shift($prices);
+        if($length > 100 ) array_shift($prices);
+
         $atr = $this->indicator->atr($prices, 14);
         $rsi = $this->indicator->rsi($prices, 14, 5);
         $wma1 = $this->indicator->wma($prices, 35);
@@ -174,7 +175,8 @@ class Lisa extends CI_Model {
             $point["id"] = generateUUID($time,$this->pair);
             $point["payload"] = [
                 "pair" => $this->pair,
-                "time" => $time
+                "time" => $time,
+                "interval" => $this->interval
             ];
             $point["vector"] = $vector;
             $complete_vector[] = $point;
@@ -182,5 +184,69 @@ class Lisa extends CI_Model {
         }
 
         return $complete_vector;
+    }
+
+    public function search($collection){
+        $data = $this->indicator_vector()[0]["vector"];
+        $result = $this->qdrant->search($data,$collection);
+        return $result;
+    }
+
+    public function predict(){
+        $collection = "indicator_vector";
+        $data = $this->search($collection);
+        $ids = [];
+        foreach($data['response']['result'] as $res){
+            $ids[] = $res["id"];
+        }
+        $points = $this->qdrant->get_point($ids, $collection)['response']['result'];   
+        $result = [];
+        foreach($points as $point) {
+            $pair = $point["payload"]["pair"];
+            $time = $point["payload"]["time"];
+            $interval = $point["payload"]["interval"];
+            $price = $this->bybit->next_prices($pair,"20", $interval,$time);
+            $open = $price[count($price) - 1][4];
+            $high = 0;
+            $low = 10000000000;
+            $i = 0;
+            foreach($price as $pr){
+                if($i == count($price)) continue;
+                if($pr[2] > $high) $high = $pr[2];
+                if($pr[3] < $low) $low = $pr[3];
+            }
+            
+            $high_ratio = 100 * ($high-$open)/$open;
+            $low_ratio = 100 * ($low-$open)/$open;
+            $result[] = [
+                "time" => $time,
+                "open" => $open,
+                "high"  => $high,
+                "low"  => $low,
+                "high_ratio" => $high_ratio,
+                "low_ratio" => $low_ratio,
+                // "price" => $price
+            ];
+        }
+
+        $avg_gain = 0;
+        $avg_loss = 0;
+        foreach($result as $rs){
+            $avg_gain += $rs["high_ratio"];
+            $avg_loss += $rs["low_ratio"];
+        }
+        
+        $avg_gain /= count($result);
+        $avg_loss /= count($result);
+
+        $all_result = [
+            "summaries" => [
+                "gain" => $avg_gain,
+                "loss" => $avg_loss
+            ],
+            "prices" => $result
+        ];
+
+        return $all_result;
     }
 }
