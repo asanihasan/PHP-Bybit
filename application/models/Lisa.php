@@ -176,7 +176,8 @@ class Lisa extends CI_Model {
             $point["payload"] = [
                 "pair" => $this->pair,
                 "time" => $time,
-                "interval" => $this->interval
+                "interval" => $this->interval,
+                // "price" => $price[4]
             ];
             $point["vector"] = $vector;
             $complete_vector[] = $point;
@@ -192,6 +193,30 @@ class Lisa extends CI_Model {
         return $result;
     }
 
+    public function simulate($collection){
+        $data = $this->indicator_vector(1000);
+        $result = [];
+        $vectors = [];
+
+        foreach($data as $dt){
+            $vector = $dt["vector"];
+            $vectors[] = $vector;
+        }
+
+        $neighbour = $this->qdrant->batch_search($vectors,$collection);
+
+        // $ids = [];
+        // foreach($neighbour['response']['result'] as $res){
+        //     foreach($res as $rs) {
+        //         $ids[] = $rs["id"];
+        //     }
+        // }
+
+        // $points = $this->qdrant->get_point($ids, $collection)['response']['result'];
+        
+        return $neighbour;
+    }
+
     public function predict(){
         $collection = "indicator_vector";
         $data = $this->search($collection);
@@ -205,7 +230,7 @@ class Lisa extends CI_Model {
             $pair = $point["payload"]["pair"];
             $time = $point["payload"]["time"];
             $interval = $point["payload"]["interval"];
-            $price = $this->bybit->next_prices($pair,"20", $interval,$time);
+            $price = $this->bybit->next_prices($pair,"40", $interval,$time);
             $open = $price[count($price) - 1][4];
             $high = 0;
             $low = 10000000000;

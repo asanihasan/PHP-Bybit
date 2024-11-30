@@ -57,6 +57,12 @@ class Home extends CI_Controller {
         header('Content-Type: application/json; charset=utf-8');
         die($data);
     }
+
+    public function simulate(){
+        $data = $this->lisa->simulate("indicator_vector");
+        header('Content-Type: application/json; charset=utf-8');
+        die(json_encode($data));
+    }
     
     private function upsert($data){
         $data = $this->qdrant->add_point($data, "candle_240");

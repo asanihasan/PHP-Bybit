@@ -52,7 +52,28 @@ class Qdrant extends CI_Model {
         $uri = "collections/$name/points/search";
         $payload = [
             "vector" => $vector,
-            "limit" => 10,
+            "limit" => 3,
+        ];
+
+        $data = $this->vector_api->post($payload ,$uri);
+        return $data;
+    }
+
+    public function batch_search($vectors, $name){
+        $uri = "collections/$name/points/search/batch";
+        $limit = 4;
+        $searches = [];
+        foreach($vectors as $vector){
+            $searches[] = [
+                "vector" => $vector,
+                "limit" => $limit,
+                "offset" => 1,
+                "with_payload" => true
+            ];
+        }
+
+        $payload = [
+            "searches" => $searches
         ];
 
         $data = $this->vector_api->post($payload ,$uri);
