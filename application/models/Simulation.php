@@ -1,7 +1,7 @@
 <?php
 defined('BASEPATH') OR exit('No direct script access allowed');
 
-class Lisa extends CI_Model {
+class Simulation extends CI_Model {
     function __construct() {
         parent::__construct();
         $this->load->model("qdrant");
@@ -11,6 +11,151 @@ class Lisa extends CI_Model {
         $this->pair = "BTCUSDT";
         $this->candle_length = 10; // number of candle in vector
         $this->interval = "15";
+    }
+
+    public function wma($len1 = 120, $len2 = 110){
+        $prices = $this->bybit->prices("BTCUSDT","2000", 60);
+        $big = $len1 > $len2 ? $len1 : $len2;
+        $small = $len1 > $len2 ? $len2 : $len1;
+        $wma1 = $this->indicator->wma($prices, $small);
+        $wma2 = $this->indicator->wma($prices, $big);
+        $rsi = $this->indicator->rsi($prices, 14, 1);
+
+        $data = [];
+        $trade_state = 0; // 0 = standby; 1 = bull; 2 = bear;
+        $start = false;
+        $trade = [];
+        $total_growth = 1;
+        for ($i=count($prices) - 1; $i >= 0; $i--) { 
+            if(!isset($wma1[$i-1]) || !isset($wma2[$i-1]) || !isset($rsi[$i-1])) continue;
+            if(!isset($wma1[$i]) || !isset($wma2[$i]) || !isset($rsi[$i])) continue;
+            $price = $prices[$i];
+            $time = $price[0];
+
+            $status      = $wma1[$i] - $wma2[$i] > 0 ? 1 : 2; // 1 =  bull ; 2 = bear
+            $last_status = $wma1[$i-1] - $wma2[$i-1] > 0 ? 1 : 2; // 1 =  bull ; 2 = bear
+            $do_trade = false;
+            if($status != $last_status) {
+                $start = true;
+                $do_trade = true;
+            }
+
+            if($start){
+                if($do_trade){
+                    $buy_price = $price[4];
+
+                    if(count($trade) > 0) { // selling here
+                        $trade[count($trade) - 1]["sell"] = $buy_price;
+                        $growth = $trade[count($trade) - 1]["direction"] == 1 ? 1 + ($buy_price - $trade[count($trade) - 1]["buy"])/$trade[count($trade) - 1]["buy"] : 1 - ($buy_price - $trade[count($trade) - 1]["buy"])/$trade[count($trade) - 1]["buy"];
+                        $trade[count($trade) - 1]["growth"] = $growth;
+                        $trade[count($trade) - 1]["sell_rsi"] = $rsi[$i];
+                        if($trade[count($trade) - 1]["do_trade"]) $total_growth *= $growth;
+                        $trade[count($trade) - 1]["total"] = $growth;
+                    }
+
+                    // buying here
+                    if($status == 1)
+                    $do = $status == 1 && $rsi[$i] < 50 ? true : false;
+                    if($status == 2)
+                    $do = $status == 2 && $rsi[$i] > 50 ? true : false;
+                    $trade[] = [
+                        "do_trade" => $do,
+                        'buy' => $buy_price,
+                        'direction' => $status,
+                        'buy_rsi' => $rsi[$i]
+                    ];
+                }
+                // $data[] = [
+                //     "status" => $status, 
+                //     "price" => $price,
+                // ];
+            }
+        }
+
+        $result = [
+            "growth" => $total_growth,
+            "trade" => $trade
+        ];
+
+        return $result;
+    }
+
+    public function candle($len1 = 120, $len2 = 110){
+        $prices = $this->bybit->prices("XRPUSDT","5000", 5);
+        $big = max($len1, $len2);
+        $small = min($len1, $len2);
+        // $wma1 = $this->indicator->wma($prices, $small);
+        // $wma2 = $this->indicator->wma($prices, $big);
+        $rsi = $this->indicator->rsi($prices, 14, 1);
+
+        $engulfing = 0;
+        $harami = 0;
+        $piercing = 0;
+        $next = 2;
+        for ($i=count($prices) - 1; $i >= 0; $i--) { 
+            if(!isset($prices[$i]) || !isset($prices[$i+1]) || !isset($rsi[$i]) || !isset($prices[$i-$next])) continue;
+
+            // engulfing
+            if 
+            (
+                ( // bull
+                    $prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
+                    $prices[$i+1][1] - $prices[$i+1][4] < 0 && // previous candle is red
+                    $prices[$i][4] > $prices[$i+1][2] // current close higer than prev high
+                ) ||
+                ( // bear
+                    $prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
+                    $prices[$i+1][1] - $prices[$i+1][4] > 0 && // previous candle is green
+                    $prices[$i][4] < $prices[$i+1][3] // current close lower than prev low
+                )
+            ) $engulfing ++;
+            
+            
+            // harami 
+            if 
+            (
+                ( // bull
+                    $prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
+                    $prices[$i+1][1] - $prices[$i+1][4] < 0 && // previous candle is red
+                    $prices[$i][4] < $prices[$i-$next][2] && // previous candle is red
+                    $prices[$i][2] < $prices[$i+1][1] && // higher now lower than open prev
+                    $rsi[$i] < 40
+                ) ||
+                ( // bear
+                    $prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
+                    $prices[$i+1][1] - $prices[$i+1][4] > 0 && // previous candle is green
+                    $prices[$i][4] > $prices[$i-$next][3] && // previous candle is green
+                    $prices[$i][4] > $prices[$i+1][1] && //  lower now lower than open prev
+                    $rsi[$i] > 60
+                )
+            ) $harami ++;
+            
+            
+            // piercing / dark cloud
+
+            if (abs($prices[$i][1] - $prices[$i][4]) > 0 )
+                if 
+                (
+                    abs($prices[$i+1][1] - $prices[$i+1][4])/abs($prices[$i][1] - $prices[$i][4]) < 2 && 
+                    (
+                        ( // bull
+                            $prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
+                            $prices[$i+1][1] - $prices[$i+1][4] < 0 && // previous candle is red
+                            $prices[$i][3] < $prices[$i+1][3] // low now lower than low prev
+                        ) ||
+                        ( // bear
+                            $prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
+                            $prices[$i+1][1] - $prices[$i+1][4] > 0 && // previous candle is green
+                            $prices[$i][2] > $prices[$i+1][2] // high now higer than high prev
+                        )
+                    )
+                ) $piercing ++;
+            
+            
+            // tweezer
+        }
+
+        return $harami;
     }
 
     public function price() {

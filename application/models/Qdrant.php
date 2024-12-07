@@ -52,7 +52,9 @@ class Qdrant extends CI_Model {
         $uri = "collections/$name/points/search";
         $payload = [
             "vector" => $vector,
-            "limit" => 3,
+            "limit" => 10,
+            "offset" => 1,
+            "with_payload" => true
         ];
 
         $data = $this->vector_api->post($payload ,$uri);

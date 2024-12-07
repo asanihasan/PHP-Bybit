@@ -26,7 +26,7 @@ class Bybit {
             }
             $get = $this->get($url);
             $price = json_decode($get)->result->list;
-            sleep(1);
+            // sleep(1);
             if(count($prices) > 0){
                 array_shift($price);
                 array_shift($price);
