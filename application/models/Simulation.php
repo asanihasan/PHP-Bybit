@@ -80,55 +80,226 @@ class Simulation extends CI_Model {
         return $result;
     }
 
+    function candleStrength($prices, $movingAveragePeriod = 5) {
+        $strengths = [];
+        $priceCount = count($prices);
+    
+        // Start from the most recent candle (index 0)
+        for ($i = 0; $i < $priceCount; $i++) {
+            // Ensure there's enough data for the moving average
+            if ($i + $movingAveragePeriod > $priceCount) {
+                break;
+            }
+    
+            $time = $prices[$i][0];
+            $open = $prices[$i][1];
+            $high = $prices[$i][2];
+            $low = $prices[$i][3];
+            $close = $prices[$i][4];
+            $volume = $prices[$i][5];
+            $turnover = $prices[$i][6];
+    
+            if ($high <= $low) {
+                $strengths[] = ['time' => $time, 'strength' => 0, 'direction' => 'neutral']; // Invalid data
+                continue;
+            }
+    
+            // Compute the moving average for volume and turnover
+            $volumeSum = 0;
+            $turnoverSum = 0;
+    
+            // Gather data for the current candle to `$i + movingAveragePeriod`
+            for ($j = $i; $j < $i + $movingAveragePeriod; $j++) {
+                $volumeSum += $prices[$j][5];
+                $turnoverSum += $prices[$j][6];
+            }
+    
+            // Calculate the moving averages
+            $averageVolume = $volumeSum / $movingAveragePeriod;
+            $averageTurnover = $turnoverSum / $movingAveragePeriod;
+    
+            // Relative Body Strength
+            $bodySize = abs($close - $open);
+            $totalRange = $high - $low;
+            $relativeBodyStrength = $bodySize / $totalRange;
+    
+            // Wick Strength
+            $upperWick = $high - max($close, $open);
+            $lowerWick = min($close, $open) - $low;
+            $upperWickStrength = $upperWick / $totalRange;
+            $lowerWickStrength = $lowerWick / $totalRange;
+    
+            // Volume and Turnover Strength
+            $volumeStrength = min($volume / $averageVolume, 1); // Cap at 1
+            $turnoverStrength = min($turnover / $averageTurnover, 1); // Cap at 1
+    
+            // Weighted strength calculation
+            $weights = [
+                'body' => 0.5,
+                'volume' => 0.2,
+                'turnover' => 0.2,
+                'wick' => 0.1
+            ];
+    
+            $strength = ($weights['body'] * $relativeBodyStrength) +
+                        ($weights['volume'] * $volumeStrength) +
+                        ($weights['turnover'] * $turnoverStrength) +
+                        ($weights['wick'] * ($upperWickStrength + $lowerWickStrength));
+    
+            // Ensure strength is between 0 and 1
+            $strength = min(max($strength, 0), 1);
+    
+            // Determine direction
+            if ($close > $open) {
+                $direction = 'bull';
+            } elseif ($close < $open) {
+                $direction = 'bear';
+            } else {
+                $direction = 'neutral';
+            }
+    
+            // Add result to the strengths array
+            $strengths[] = ['time' => $time, 'strength' => $strength, 'direction' => $direction];
+        }
+    
+        return $strengths;
+    }
+
+    public function hft(){
+        $prices = $this->bybit->prices("XRPUSDT","5000", "15");
+
+    }
+
+    public function candle_v2(){
+        $prices = $this->bybit->prices("XRPUSDT","10000", "15");
+        $strength = $this->candleStrength($prices);
+        $x = 0;
+        $win = 0;
+        $lose = 0;
+        $trade = [];
+        $capital = 1;
+
+        for ($i=count($prices) - 1; $i > 0; $i--) { 
+            if(!isset($prices[$i - 1]) || !isset($strength[$i])) continue;
+            $price = $prices[$i];
+            $next_price = $prices[$i - 1];
+            if($strength[$i]["strength"] > 0.8){
+                $x++;
+                if($strength[$i]["direction"] == "bull"){
+                    $grow = -100 * (floatval($next_price[3]) - floatval($price[4])) / floatval($price[4]);
+                    if($grow > 0.3){
+                        $win ++;
+                        $status = "win";
+                        $capital *= 1.003;
+                    } else {
+                        $capital *= 1 + (-1 * (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]));
+                        $lose ++;
+                        $status = 'lose';
+                    }
+                    $trade[] = [
+                        "buy" => floatval($price[4]),
+                        "sell" => floatval($next_price[4]),
+                        "direction" => "bear",
+                        "growth" => $grow,
+                        "status" => $status,
+                        "capital" => $capital
+                    ];
+                }
+                if($strength[$i]["direction"] == "bear"){
+                    $grow = 100 * (floatval($next_price[2]) - floatval($price[4])) / floatval($price[4]);
+                    if($grow > 0.3){
+                        $win ++;
+                        $status = "win";
+                        $capital *= 1.003;
+                    } else {
+                        $capital *= 1 + (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]);
+                        $lose ++;
+                        $status = 'lose';
+                    }
+                    $trade[] = [
+                        "buy" => floatval($price[4]),
+                        "sell" => floatval($next_price[4]),
+                        "direction" => "bull",
+                        "growth" => $grow,
+                        "status" => $status,
+                        "capital" => $capital
+                    ];
+                }
+            }
+        }
+
+        $result = [
+            "total" => $x,
+            "win" => $win,
+            "lose" => $lose,
+            "growth" => $capital,
+            "trade" => $trade,
+        ];
+
+        return $result;
+    }
+
     public function candle($len1 = 120, $len2 = 110){
-        $prices = $this->bybit->prices("XRPUSDT","5000", 5);
+        $prices = $this->bybit->prices("XRPUSDT","50000", "15");
         $big = max($len1, $len2);
         $small = min($len1, $len2);
         // $wma1 = $this->indicator->wma($prices, $small);
         // $wma2 = $this->indicator->wma($prices, $big);
         $rsi = $this->indicator->rsi($prices, 14, 1);
 
-        $engulfing = 0;
-        $harami = 0;
-        $piercing = 0;
-        $next = 2;
+        $harami = [
+            "count" => 0,
+            "bull" => 0,
+            "bear" => 0,
+            "win" => 0,
+            "bull_win" => 0,
+            "bear_win" => 0,
+        ]; 
+        $engulfing = [];
+        $piercing = [];
+        $next = 10;
         for ($i=count($prices) - 1; $i >= 0; $i--) { 
             if(!isset($prices[$i]) || !isset($prices[$i+1]) || !isset($rsi[$i]) || !isset($prices[$i-$next])) continue;
+
+            $is_engulfing = false;
+            $is_harami = false;
+            $is_piercing = false;
+
+            if ($prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
+                $prices[$i+1][1] - $prices[$i+1][4] < 0) // previous candle is red
+                $double_candel = "bull";
+            if ($prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
+                $prices[$i+1][1] - $prices[$i+1][4] > 0) // previous candle is green
+                $double_candel = "bear";
 
             // engulfing
             if 
             (
                 ( // bull
-                    $prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
-                    $prices[$i+1][1] - $prices[$i+1][4] < 0 && // previous candle is red
+                    $double_candel == "bull" &&
                     $prices[$i][4] > $prices[$i+1][2] // current close higer than prev high
                 ) ||
                 ( // bear
-                    $prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
-                    $prices[$i+1][1] - $prices[$i+1][4] > 0 && // previous candle is green
+                    $double_candel == "bear" &&
                     $prices[$i][4] < $prices[$i+1][3] // current close lower than prev low
                 )
-            ) $engulfing ++;
+            ) $is_engulfing = true;
             
+
             
             // harami 
             if 
             (
                 ( // bull
-                    $prices[$i][1] - $prices[$i][4] > 0 && // current candle is green
-                    $prices[$i+1][1] - $prices[$i+1][4] < 0 && // previous candle is red
-                    $prices[$i][4] < $prices[$i-$next][2] && // previous candle is red
-                    $prices[$i][2] < $prices[$i+1][1] && // higher now lower than open prev
-                    $rsi[$i] < 40
+                    $double_candel == "bull" &&
+                    $prices[$i][2] < $prices[$i+1][1] // higher now lower than open prev
+
                 ) ||
                 ( // bear
-                    $prices[$i][1] - $prices[$i][4] < 0 && // current candle is red
-                    $prices[$i+1][1] - $prices[$i+1][4] > 0 && // previous candle is green
-                    $prices[$i][4] > $prices[$i-$next][3] && // previous candle is green
-                    $prices[$i][4] > $prices[$i+1][1] && //  lower now lower than open prev
-                    $rsi[$i] > 60
+                    $double_candel == "bear" &&
+                    $prices[$i][4] > $prices[$i+1][1] //  lower now lower than open prev
                 )
-            ) $harami ++;
+            ) $is_harami = true;
             
             
             // piercing / dark cloud
@@ -149,10 +320,55 @@ class Simulation extends CI_Model {
                             $prices[$i][2] > $prices[$i+1][2] // high now higer than high prev
                         )
                     )
-                ) $piercing ++;
+                ) $is_piercing = true;
             
             
             // tweezer
+
+            //if trade?
+            if($is_harami) {
+                if( // if trade bull
+                    $double_candel == "bull" &&
+                    $rsi[$i] < 40
+                ) {
+                    $harami["count"] ++;
+                    $harami["bull"] ++;
+                    $change = [
+                        $prices[$i][1], $prices[$i][4], $prices[$i+1][1], $prices[$i+1][4],
+                    ];
+                    $target = (max($change) - min($change))/4;
+                    $win = false;
+                    for ($x=1; $x <= $next; $x++) { 
+                        if($prices[$i-$x][2] >= $prices[$i][4]+$target) $win = true;
+                    }
+
+                    if($win){
+                        $harami["bull_win"] ++;
+                        $harami["win"] ++;
+                    }
+                }
+                
+                if( // if trade bear
+                    $double_candel == "bear" &&
+                    $rsi[$i] > 60
+                ) {
+                    $harami["count"] ++;
+                    $harami["bear"] ++;
+                    $change = [
+                        $prices[$i][1], $prices[$i][4], $prices[$i+1][1], $prices[$i+1][4],
+                    ];
+                    $target = (max($change) - min($change))/4;
+                    $win = false;
+                    for ($x=1; $x <= $next; $x++) { 
+                        if($prices[$i-$x][2] <= $prices[$i][4]-$target) $win = true;
+                    }
+
+                    if($win){
+                        $harami["bear_win"] ++;
+                        $harami["win"] ++;
+                    }
+                }
+            }
         }
 
         return $harami;

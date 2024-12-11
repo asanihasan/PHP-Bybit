@@ -9,7 +9,7 @@ class Simulate extends CI_Controller {
     }
 
     public function index() {
-        $data = $this->simulation->candle();
+        $data = $this->simulation->candle_v2();
     
         header('Content-Type: application/json; charset=utf-8');
         die(json_encode($data));
