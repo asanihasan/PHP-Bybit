@@ -171,27 +171,33 @@ class Simulation extends CI_Model {
     }
 
     public function candle_v2(){
-        $prices = $this->bybit->prices("XRPUSDT","10000", "15");
+        $prices = $this->bybit->prices("XRPUSDT","100000", "15");
         $strength = $this->candleStrength($prices);
+        $rsi = $this->indicator->rsi($prices, 14, 1);
+        $atr = $this->indicator->atr($prices,3);
         $x = 0;
         $win = 0;
         $lose = 0;
         $trade = [];
         $capital = 1;
+        $tp = 0.25;
+        $rsi_limit = 10;
 
         for ($i=count($prices) - 1; $i > 0; $i--) { 
-            if(!isset($prices[$i - 1]) || !isset($strength[$i])) continue;
+            if(!isset($prices[$i - 1]) || !isset($strength[$i]) ||  !isset($rsi[$i]) ||  !isset($atr[$i])) continue;
             $price = $prices[$i];
             $next_price = $prices[$i - 1];
-            if($strength[$i]["strength"] > 0.8){
-                $x++;
-                if($strength[$i]["direction"] == "bull"){
+            if($strength[$i]["strength"] > 0.7){
+                if($strength[$i]["direction"] == "bull" && $rsi[$i] > 50 + $rsi_limit && 100 * $atr[$i]/$price[1] > 10){
+                // if($strength[$i]["direction"] == "bull"){
+                    $x++;
                     $grow = -100 * (floatval($next_price[3]) - floatval($price[4])) / floatval($price[4]);
-                    if($grow > 0.3){
+                    if($grow > $tp){
                         $win ++;
                         $status = "win";
-                        $capital *= 1.003;
+                        $capital *= 1 + $tp/100;
                     } else {
+                        $grow = -100 * (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]);
                         $capital *= 1 + (-1 * (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]));
                         $lose ++;
                         $status = 'lose';
@@ -202,16 +208,21 @@ class Simulation extends CI_Model {
                         "direction" => "bear",
                         "growth" => $grow,
                         "status" => $status,
-                        "capital" => $capital
+                        "capital" => $capital,
+                        "rsi" => $rsi[$i],
+                        "atr" => 100 * $atr[$i]/$price[1]
                     ];
                 }
-                if($strength[$i]["direction"] == "bear"){
+                if($strength[$i]["direction"] == "bear" && $rsi[$i] < 50 - $rsi_limit && 100 * $atr[$i]/$price[1] > 10){
+                // if($strength[$i]["direction"] == "bear"){
+                    $x++;
                     $grow = 100 * (floatval($next_price[2]) - floatval($price[4])) / floatval($price[4]);
-                    if($grow > 0.3){
+                    if($grow > $tp){
                         $win ++;
                         $status = "win";
-                        $capital *= 1.003;
+                        $capital *= 1 + $tp/100;
                     } else {
+                        $grow = 100 * (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]);
                         $capital *= 1 + (floatval($next_price[4]) - floatval($price[4])) / floatval($price[4]);
                         $lose ++;
                         $status = 'lose';
@@ -222,7 +233,9 @@ class Simulation extends CI_Model {
                         "direction" => "bull",
                         "growth" => $grow,
                         "status" => $status,
-                        "capital" => $capital
+                        "capital" => $capital,
+                        "rsi" => $rsi[$i],
+                        "atr" => 100 * $atr[$i]/$price[1]
                     ];
                 }
             }
@@ -233,6 +246,7 @@ class Simulation extends CI_Model {
             "win" => $win,
             "lose" => $lose,
             "growth" => $capital,
+            "winrate" => 100 * $win / ($lose+$win),
             "trade" => $trade,
         ];
 
