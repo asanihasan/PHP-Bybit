@@ -204,4 +204,44 @@ class Indicator extends CI_Model {
         // Reverse the scaled ATR to match the original prices order
         return array_reverse($scaledATR);
     }
+
+    public function growth($prices, $length) {
+        $growthData = [];
+    
+        // Reverse prices to process in chronological order
+        $prices = array_reverse($prices);
+    
+        // Iterate through each price point
+        foreach ($prices as $index => $price) {
+            // Stop calculation if there aren't enough future points
+            if ($index + $length > count($prices)) {
+                $growthData[] = [
+                    "high" => 0,
+                    "low" => 0
+                ];
+                continue;
+            }
+    
+            // Extract the close price of the current point
+            $currentClose = $price[4];
+    
+            // Calculate the highest and lowest prices in the next `length` days
+            $futurePrices = array_slice($prices, $index, $length);
+            $highestPrice = max(array_column($futurePrices, 4));
+            $lowestPrice = min(array_column($futurePrices, 4));
+    
+            // Calculate the percentage growth to high and low
+            $highPercent = (($highestPrice - $currentClose) / $currentClose) * 100;
+            $lowPercent = (($currentClose - $lowestPrice) / $currentClose) * 100;
+    
+            // Append the calculated data to the result
+            $growthData[] = [
+                "high" => round($highPercent, 2),
+                "low" => round($lowPercent, 2)
+            ];
+        }
+    
+        // Reverse the result to match the original order of prices
+        return array_reverse($growthData);
+    }
 }
