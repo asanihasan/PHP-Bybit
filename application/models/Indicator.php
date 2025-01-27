@@ -227,8 +227,8 @@ class Indicator extends CI_Model {
     
             // Calculate the highest and lowest prices in the next `length` days
             $futurePrices = array_slice($prices, $index, $length);
-            $highestPrice = max(array_column($futurePrices, 4));
-            $lowestPrice = min(array_column($futurePrices, 4));
+            $highestPrice = max(array_column($futurePrices, 2));
+            $lowestPrice = min(array_column($futurePrices, 3));
     
             // Calculate the percentage growth to high and low
             $highPercent = (($highestPrice - $currentClose) / $currentClose) * 100;
@@ -243,5 +243,107 @@ class Indicator extends CI_Model {
     
         // Reverse the result to match the original order of prices
         return array_reverse($growthData);
+    }
+
+    function candleStrength($prices, $movingAveragePeriod = 5) {
+        $strengths = [];
+        $priceCount = count($prices);
+    
+        // Start from the most recent candle (index 0)
+        for ($i = 0; $i < $priceCount; $i++) {
+            // Ensure there's enough data for the moving average
+            if ($i + $movingAveragePeriod > $priceCount) {
+                break;
+            }
+    
+            $time = $prices[$i][0];
+            $open = $prices[$i][1];
+            $high = $prices[$i][2];
+            $low = $prices[$i][3];
+            $close = $prices[$i][4];
+            $volume = $prices[$i][5];
+            $turnover = $prices[$i][6];
+    
+            if ($high <= $low) {
+                $strengths[] = ['time' => $time, 'strength' => 0, 'direction' => 'neutral']; // Invalid data
+                continue;
+            }
+    
+            // Compute the moving average for volume and turnover
+            $volumeSum = 0;
+            $turnoverSum = 0;
+    
+            // Gather data for the current candle to `$i + movingAveragePeriod`
+            for ($j = $i; $j < $i + $movingAveragePeriod; $j++) {
+                $volumeSum += $prices[$j][5];
+                $turnoverSum += $prices[$j][6];
+            }
+    
+            // Calculate the moving averages
+            $averageVolume = $volumeSum / $movingAveragePeriod;
+            $averageTurnover = $turnoverSum / $movingAveragePeriod;
+    
+            // Relative Body Strength
+            $bodySize = abs($close - $open);
+            $totalRange = $high - $low;
+            $relativeBodyStrength = $bodySize / $totalRange;
+    
+            // Wick Strength
+            $upperWick = $high - max($close, $open);
+            $lowerWick = min($close, $open) - $low;
+            $upperWickStrength = $upperWick / $totalRange;
+            $lowerWickStrength = $lowerWick / $totalRange;
+    
+            // Volume and Turnover Strength
+            $volumeStrength = min($volume / $averageVolume, 1); // Cap at 1
+            $turnoverStrength = min($turnover / $averageTurnover, 1); // Cap at 1
+    
+            // Weighted strength calculation
+            $weights = [
+                'body' => 0.5,
+                'volume' => 0.2,
+                'turnover' => 0.2,
+                'wick' => 0.1
+            ];
+    
+            $strength = ($weights['body'] * $relativeBodyStrength) +
+                        ($weights['volume'] * $volumeStrength) +
+                        ($weights['turnover'] * $turnoverStrength) +
+                        ($weights['wick'] * ($upperWickStrength + $lowerWickStrength));
+    
+            // Ensure strength is between 0 and 1
+            $strength = min(max($strength, 0), 1);
+    
+            // Determine direction
+            if ($close > $open) {
+                $direction = 'bull';
+            } elseif ($close < $open) {
+                $direction = 'bear';
+            } else {
+                $direction = 'neutral';
+            }
+    
+            // Add result to the strengths array
+            $strengths[] = ['time' => $time, 'strength' => $strength, 'direction' => $direction];
+        }
+    
+        return $strengths;
+    }
+
+    public function normalize(array $data): array {
+        // Find the maximum absolute value in the array
+        $maxAbsValue = max(array_map('abs', $data));
+    
+        // Avoid division by zero
+        if ($maxAbsValue == 0) {
+            return array_fill(0, count($data), 0);
+        }
+    
+        // Normalize each value to the range [-1, 1]
+        $normalizedData = array_map(function($value) use ($maxAbsValue) {
+            return $value / $maxAbsValue;
+        }, $data);
+    
+        return $normalizedData;
     }
 }

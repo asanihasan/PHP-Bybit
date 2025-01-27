@@ -13,13 +13,129 @@ class Simulation extends CI_Model {
         $this->interval = "15";
     }
 
+    public function vector_v2(){
+        ini_set('memory_limit', '256M');
+        $collection = "testing_01";
+        $pair = "BTCUSDT";
+        $prices = $this->bybit->prices($pair,"20000", 60);
+        
+        // get indicators information
+
+        $small = 121;
+        $big = 130;
+
+        $wma1 = $this->indicator->wma($prices, $small);
+        $wma2 = $this->indicator->wma($prices, $big);
+        
+        $ma1 = $this->indicator->ma($prices, $small);
+        $ma2 = $this->indicator->ma($prices, $big);
+
+        $rsi = $this->indicator->rsi($prices, 14, 4);
+        $atr = $this->indicator->atr($prices, 14);
+
+        $growth = $this->indicator->growth($prices, 10);
+
+        //vectorize start here
+        
+        // generate wma vector
+        $wma_vector = [];
+        foreach($wma2 as $i => $w){
+            $wma = $wma2[$i]-$wma1[$i];
+            $wma_vector[] = $wma;
+        }
+        $wma_vector = $this->indicator->normalize($wma_vector);
+        
+        // generate wma vector
+        $ma_vector = [];
+        foreach($ma2 as $i => $w){
+            $ma = $ma2[$i]-$ma1[$i];
+            $ma_vector[] = $ma;
+        }
+        $ma_vector = $this->indicator->normalize($ma_vector);
+        
+        // generate rsi vector
+        $rsi = array_map(fn($r) => $r - 50, $rsi);
+        $rsi_vector = $this->indicator->normalize($rsi);
+        
+        // generate atr vector
+        $atr_vector = $this->indicator->normalize($atr);
+
+        //generate vectors
+        $vectors = [];
+        
+        foreach($prices as $i => $price) {
+            if (
+                !isset($wma_vector[$i]) ||
+                !isset($wma_vector[$i + 1]) ||
+                !isset($wma_vector[$i + 2]) ||
+                !isset($wma_vector[$i + 3]) ||
+                
+                !isset($ma_vector[$i]) ||
+                !isset($ma_vector[$i + 1]) ||
+                !isset($ma_vector[$i + 2]) ||
+                !isset($ma_vector[$i + 3]) ||
+
+                !isset($rsi_vector[$i]) ||
+                !isset($rsi_vector[$i + 1]) ||
+                !isset($rsi_vector[$i + 2]) ||
+                !isset($rsi_vector[$i + 3]) ||
+
+                !isset($atr_vector[$i]) ||
+                !isset($atr_vector[$i + 1]) ||
+                !isset($atr_vector[$i + 2]) ||
+                !isset($atr_vector[$i + 3]) ||
+
+                ($growth[$i]["high"] == 0 && $growth[$i]["low"] == 0)
+            ) continue;
+
+            $time = $price[0];
+            $vector = [];
+
+
+            $vector[] = $wma_vector[$i];
+            $vector[] = $wma_vector[$i+1];
+            $vector[] = $wma_vector[$i+2];
+            $vector[] = $wma_vector[$i+3];
+
+            $vector[] = $ma_vector[$i];
+            $vector[] = $ma_vector[$i+1];
+            $vector[] = $ma_vector[$i+2];
+            $vector[] = $ma_vector[$i+3];
+
+            $vector[] = $rsi_vector[$i];
+            $vector[] = $rsi_vector[$i+1];
+            $vector[] = $rsi_vector[$i+2];
+            $vector[] = $rsi_vector[$i+3];
+
+            $vector[] = $atr_vector[$i];
+            $vector[] = $atr_vector[$i+1];
+            $vector[] = $atr_vector[$i+2];
+            $vector[] = $atr_vector[$i+3];
+            
+            $vectors[] = [
+                "id" => generateUUID($time,$pair),
+                "payload" => ["pair" => $pair, "time" => $time, "growth" => $growth[$i]],
+                "vector" => $vector
+            ];
+        }
+         
+
+        $length = count($vectors[0]["vector"]);
+
+        //create collection
+        $data = $this->qdrant->create_collection($collection,$length);
+
+        //prepare payload and insert data to collection
+        $payload = ["points" => $vector]; 
+        $data = $this->qdrant->add_point($payload, $collection);
+
+        return "done";
+    }
+
     public function wma($len1 = 120, $len2 = 110){
         $prices = $this->bybit->prices("BTCUSDT","2000", 60);
         $big = $len1 > $len2 ? $len1 : $len2;
         $small = $len1 > $len2 ? $len2 : $len1;
-        $wma1 = $this->indicator->wma($prices, $small);
-        $wma2 = $this->indicator->wma($prices, $big);
-        $rsi = $this->indicator->rsi($prices, 14, 1);
 
         $data = [];
         $trade_state = 0; // 0 = standby; 1 = bull; 2 = bear;
